@@ -1,0 +1,431 @@
+Analysis of Meta-data from NASA GeneLab.
+
+```
+# First, we need to read the file to examine its contents and structure.
+file_path = '/mnt/data/genelab_osd.txt'
+
+# Let's attempt to open the file and read the first few lines to understand its structure.
+with open(file_path, 'r') as file:
+    lines = [next(file) for _ in range(5)]
+```
+
+The file appears to be a tab-separated values (TSV) file with columns including "OSD-id", "hits", "publicReleaseDate", "publicReleaseDateYear", "technologyPlatform", "technologyType", "measurementType", "OrganismCount", "Organism", and "Factors". The "Organism" column contains the names of organisms, such as "Drosophila melanogaster", "Homo sapiens", and "Mus musculus".
+
+To provide a summary analysis of the "Organism" column, I'll proceed to read the entire file, extract the "Organism" column, and perform an analysis to determine the unique organisms listed and their frequencies of occurrence. Let's start by reading the full contents and analyzing the "Organism" column.​
+
+```
+python
+import pandas as pd
+
+# Load the data into a DataFrame
+df = pd.read_csv(file_path, sep='\t')
+
+# Summary analysis of the 'Organism' column
+organism_summary = df['Organism'].value_counts()
+
+organism_summary
+```
+
+The analysis of the "Organism" column reveals the following:
+
+"Mus musculus" (house mouse) is the most frequently occurring organism with 213 instances.
+"Homo sapiens" (human) appears 78 times.
+"Arabidopsis thaliana" (a model organism for plant biology) appears 62 times.
+There are a variety of other organisms listed with lower frequencies, such as "Microbiota" and "Rattus norvegicus" (Norway rat), among others.
+In total, there are 74 unique organisms or groups of organisms mentioned in the dataset.
+This dataset shows a diversity of organisms that are of interest in the context of the studies listed, with a clear emphasis on model organisms and humans.​
+
+Plot this data as a pie chart
+
+```
+import matplotlib.pyplot as plt
+
+# Since there are many unique organisms, we will focus on the top ones for clarity in the pie chart
+# and group the rest under 'Other'
+top_organisms = organism_summary.nlargest(10)  # top 10 organisms
+others = organism_summary[10:].sum()  # sum of all others
+top_organisms['Other'] = others
+
+# Plotting the pie chart
+plt.figure(figsize=(10, 8))
+plt.pie(top_organisms, labels=top_organisms.index, autopct='%1.1f%%', startangle=140)
+plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+plt.title('Top Organisms Distribution')
+plt.show()
+```
+
+The pie chart has been created, displaying the distribution of the top organisms within the dataset. The chart includes the ten most frequent organisms and aggregates the rest into an "Other" category for clarity.​
+
+```
+# First, we filter the data for the organism "Arabidopsis thaliana"
+arabidopsis_data = df[df['Organism'].str.contains("Arabidopsis thaliana", case=False, na=False)]
+
+# Summary for "technologyPlatform", "technologyType", "measurementType"
+technology_summary = arabidopsis_data[['technologyPlatform', 'technologyType', 'measurementType']].describe()
+
+# How the usage of technology changes over time based on "publicReleaseDate"
+technology_over_time = arabidopsis_data.groupby('publicReleaseDateYear').agg({
+    'OSD-id': 'count',
+    'technologyPlatform': pd.Series.mode,  # mode will give us the most frequent value
+    'technologyType': pd.Series.mode,
+    'measurementType': pd.Series.mode
+})
+
+technology_summary, technology_over_time.reset_index()
+```
+
+For the organism "Arabidopsis thaliana":
+
+The most common technology platform used is Illumina, appearing 30 times out of 58 instances where the platform was specified.
+The most frequent technology type is RNA Sequencing (RNA-Seq), with 27 occurrences out of 62.
+The measurement type most often reported is transcription profiling, which is noted 52 times out of 62.
+When looking at the data over time:
+
+Prior to 2015, Affymetrix was a common platform alongside Agilent and Nimblegen.
+Starting from 2018, Illumina became the dominant technology platform.
+The technology type has shifted more towards RNA Sequencing (RNA-Seq), especially in the most recent years.
+Transcription profiling remains the most consistently reported measurement type throughout the years.
+The counts of "OSD-id" indicate the number of datasets released each year for "Arabidopsis thaliana". There's an observable trend of increasing data release frequency over time, particularly in 2018 and 2021.​
+
+This trend suggests that "Arabidopsis thaliana" has continued to be a significant organism for study over the years, with sustained or increasing interest in the research community.
+
+The transition from technologies like Affymetrix and Agilent to Illumina corresponds with the broader movement in the genomics field towards next-generation sequencing technologies. RNA-Seq on platforms like Illumina allows for more detailed and comprehensive profiling of transcriptomes, which can explain its increased usage over time.
+
+The consistent focus on transcription profiling as a measurement type reflects the ongoing interest in understanding the gene expression patterns of "Arabidopsis thaliana" under various conditions. This is likely due to its status as a model organism in plant biology, with a well-annotated genome and a wide range of available genetic tools, making it an ideal candidate for studies in gene expression.
+
+In summary, the data reflects both technological advancements in genomics and the sustained importance of "Arabidopsis thaliana" in biological research, with an increasing amount of data being generated and made publicly available in recent years.
+
+
+
+#### Now plot line graphs showing the frequency of use of each ‘technology type’ based on the “ publicReleaseDate” and counts of “OSD-id”
+
+```
+# To create line graphs showing the frequency of use of each 'technology type' over time,
+# we first need to prepare the data accordingly.
+
+# We need to create a time series for each technology type by counting occurrences by year.
+technology_type_over_time = arabidopsis_data.groupby(['publicReleaseDateYear', 'technologyType']).size().unstack(fill_value=0)
+
+# Plotting the time series data
+plt.figure(figsize=(14, 7))
+for technology in technology_type_over_time.columns:
+    plt.plot(technology_type_over_time.index, technology_type_over_time[technology], marker='o', label=technology)
+
+plt.title('Frequency of Use of Technology Types Over Time')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The line graphs have been created, each line representing the frequency of use of a particular 'technology type' for "Arabidopsis thaliana" over time. Each point on a line corresponds to the count of "OSD-id" entries for that technology type in a given year. This visualization helps to illustrate trends and changes in technology preferences within the dataset over the years.​
+
+
+#### Now repeat this process with the “mouse” data
+
+```
+# First, we filter the data for the organism "Mus musculus" (mouse)
+mouse_data = df[df['Organism'].str.contains("Mus musculus", case=False, na=False)]
+
+# We need to create a time series for each technology type by counting occurrences by year for mouse data.
+mouse_technology_type_over_time = mouse_data.groupby(['publicReleaseDateYear', 'technologyType']).size().unstack(fill_value=0)
+
+# Plotting the time series data for mouse
+plt.figure(figsize=(14, 7))
+for technology in mouse_technology_type_over_time.columns:
+    plt.plot(mouse_technology_type_over_time.index, mouse_technology_type_over_time[technology], marker='o', label=technology)
+
+plt.title('Frequency of Use of Technology Types Over Time for Mus musculus')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The line graphs illustrating the frequency of use of each 'technology type' over time for "Mus musculus" (mouse) have been plotted. The trends show the count of "OSD-id" entries associated with each technology type by year, reflecting the research community's technology preferences in mouse-related studies.​
+
+```
+## Now remake the “Arabidopsis” graph but add a regression line of best fit for each technology type and extend it 5 years into the future “publicReleaseDate”
+
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# Preparing the data for regression analysis
+# We need the year as our independent variable. We will convert it to a 2D array as required for sklearn.
+X = technology_type_over_time.index.values.reshape(-1, 1)  # years
+future_X = np.arange(X[-1][0]+1, X[-1][0]+6).reshape(-1, 1)  # next 5 years
+
+# Plotting the data and fitting a regression line for each technology type
+plt.figure(figsize=(14, 7))
+for technology in technology_type_over_time.columns:
+    y = technology_type_over_time[technology].values  # frequency
+    # Only fit a line if there is more than one data point
+    if len(y[y > 0]) > 1:
+        # Fit the linear regression model
+        model = LinearRegression()
+        model.fit(X, y)
+        # Predict the future values
+        future_y = model.predict(future_X)
+        # Plotting the actual data
+        plt.plot(X, y, marker='o', label=technology)
+        # Plotting the regression line, including the future predictions
+        plt.plot(np.concatenate((X, future_X)).flatten(), 
+                 np.concatenate((model.predict(X), future_y)).flatten(), 
+                 linestyle='--', linewidth=2)
+    else:
+        # If only one data point, just plot the point without fitting a line
+        plt.scatter(X, y, label=technology)
+
+plt.title('Frequency of Use of Technology Types with Trend Lines for Arabidopsis thaliana')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The updated graph for "Arabidopsis thaliana" now includes regression lines of best fit for each technology type, extended five years into the future based on the "publicReleaseDate". These trend lines provide a visual extrapolation of how the use of each technology might progress if current trends continue.​
+
+
+## Now repeat that process for “Mouse” data
+
+```
+# Preparing the data for regression analysis for mouse data
+X_mouse = mouse_technology_type_over_time.index.values.reshape(-1, 1)  # years
+future_X_mouse = np.arange(X_mouse[-1][0]+1, X_mouse[-1][0]+6).reshape(-1, 1)  # next 5 years
+
+# Plotting the data and fitting a regression line for each technology type for mouse data
+plt.figure(figsize=(14, 7))
+for technology in mouse_technology_type_over_time.columns:
+    y_mouse = mouse_technology_type_over_time[technology].values  # frequency
+    # Only fit a line if there is more than one data point
+    if len(y_mouse[y_mouse > 0]) > 1:
+        # Fit the linear regression model
+        model_mouse = LinearRegression()
+        model_mouse.fit(X_mouse, y_mouse)
+        # Predict the future values
+        future_y_mouse = model_mouse.predict(future_X_mouse)
+        # Plotting the actual data
+        plt.plot(X_mouse, y_mouse, marker='o', label=technology)
+        # Plotting the regression line, including the future predictions
+        plt.plot(np.concatenate((X_mouse, future_X_mouse)).flatten(), 
+                 np.concatenate((model_mouse.predict(X_mouse), future_y_mouse)).flatten(), 
+                 linestyle='--', linewidth=2)
+    else:
+        # If only one data point, just plot the point without fitting a line
+        plt.scatter(X_mouse, y_mouse, label=technology)
+
+plt.title('Frequency of Use of Technology Types with Trend Lines for Mus musculus')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The updated graph for "Mus musculus" (mouse) data now includes regression lines of best fit for each technology type, with these lines extended five years into the future. These trend lines offer a projection of potential future technology usage trends in mouse-related research.​
+
+## Now repeat that process for “Human” data
+
+```
+# Preparing the data for regression analysis for human data
+X_human = human_technology_type_over_time.index.values.reshape(-1, 1)  # years
+future_X_human = np.arange(X_human[-1][0]+1, X_human[-1][0]+6).reshape(-1, 1)  # next 5 years
+
+# Plotting the data and fitting a regression line for each technology type for human data
+plt.figure(figsize=(14, 7))
+for technology in human_technology_type_over_time.columns:
+    y_human = human_technology_type_over_time[technology].values  # frequency
+    # Only fit a line if there is more than one data point
+    if len(y_human[y_human > 0]) > 1:
+        # Fit the linear regression model
+        model_human = LinearRegression()
+        model_human.fit(X_human, y_human)
+        # Predict the future values
+        future_y_human = model_human.predict(future_X_human)
+        # Plotting the actual data
+        plt.plot(X_human, y_human, marker='o', label=technology)
+        # Plotting the regression line, including the future predictions
+        plt.plot(np.concatenate((X_human, future_X_human)).flatten(), 
+                 np.concatenate((model_human.predict(X_human), future_y_human)).flatten(), 
+                 linestyle='--', linewidth=2)
+    else:
+        # If only one data point, just plot the point without fitting a line
+        plt.scatter(X_human, y_human, label=technology)
+
+plt.title('Frequency of Use of Technology Types with Trend Lines for Homo sapiens')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The graph for "Homo sapiens" (human) data now includes regression lines of best fit for each technology type, extended five years into the future based on the "publicReleaseDate". These trend lines provide an extrapolated view of how the use of each technology might evolve if current trends persist in human research studies.​
+
+## Now repeat that process for data from all organisms
+
+```
+# Preparing the data for regression analysis for all organisms
+technology_type_overall_time = df.groupby(['publicReleaseDateYear', 'technologyType']).size().unstack(fill_value=0)
+
+# The independent variable for the regression, reshaped for sklearn
+X_overall = technology_type_overall_time.index.values.reshape(-1, 1)
+# Future years for prediction
+future_X_overall = np.arange(X_overall[-1][0]+1, X_overall[-1][0]+6).reshape(-1, 1)
+
+# Plotting the data and fitting a regression line for each technology type for all organisms
+plt.figure(figsize=(14, 7))
+for technology in technology_type_overall_time.columns:
+    y_overall = technology_type_overall_time[technology].values
+    if len(y_overall[y_overall > 0]) > 1:
+        # Fit the linear regression model
+        model_overall = LinearRegression()
+        model_overall.fit(X_overall, y_overall)
+        # Predict future values
+        future_y_overall = model_overall.predict(future_X_overall)
+        # Plotting the actual data
+        plt.plot(X_overall, y_overall, marker='o', label=technology)
+        # Plotting the regression line, including the future predictions
+        plt.plot(np.concatenate((X_overall, future_X_overall)).flatten(), 
+                 np.concatenate((model_overall.predict(X_overall), future_y_overall)).flatten(), 
+                 linestyle='--', linewidth=2)
+    else:
+        plt.scatter(X_overall, y_overall, label=technology)
+
+plt.title('Frequency of Use of Technology Types with Trend Lines for All Organisms')
+plt.xlabel('Year')
+plt.ylabel('Frequency')
+plt.legend(title='Technology Type')
+plt.grid(True)
+plt.show()
+```
+
+The graph now features regression lines of best fit for each technology type used across all organisms, with projections extending five years into the future. This visualization offers a comprehensive look at the overall trends in technology usage in the dataset and suggests potential future directions for research across various organisms.​
+
+
+##Remake all the graphs in this conversation but change the position of the figure legend so it cannot cover the main graph(s)
+
+```
+# Redefine the plotting function with adjusted legend position
+def plot_with_regression(data, title, X_values, future_X_values):
+    plt.figure(figsize=(14, 7))
+    for technology in data.columns:
+        y_values = data[technology].values
+        if len(y_values[y_values > 0]) > 1:
+            model = LinearRegression()
+            model.fit(X_values, y_values)
+            future_y_values = model.predict(future_X_values)
+            plt.plot(X_values, y_values, marker='o', label=technology)
+            plt.plot(np.concatenate((X_values, future_X_values)).flatten(),
+                     np.concatenate((model.predict(X_values), future_y_values)).flatten(),
+                     linestyle='--', linewidth=2)
+        else:
+            plt.scatter(X_values, y_values, label=technology)
+    plt.title(title)
+    plt.xlabel('Year')
+    plt.ylabel('Frequency')
+    plt.legend(title='Technology Type', loc='upper left', bbox_to_anchor=(1, 1))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+# Arabidopsis thaliana
+
+plot_with_regression(technology_type_over_time, 
+                     'Frequency of Use of Technology Types with Trend Lines for Arabidopsis thaliana', 
+                     X, future_X)
+
+# Mus musculus (Mouse)
+plot_with_regression(mouse_technology_type_over_time, 
+                     'Frequency of Use of Technology Types with Trend Lines for Mus musculus', 
+                     X_mouse, future_X_mouse)
+
+# Homo sapiens (Human)
+plot_with_regression(human_technology_type_over_time, 
+                     'Frequency of Use of Technology Types with Trend Lines for Homo sapiens', 
+                     X_human, future_X_human)
+
+# All organisms
+plot_with_regression(technology_type_overall_time, 
+                     'Frequency of Use of Technology Types with Trend Lines for All Organisms', 
+                     X_overall, future_X_overall)
+```
+
+##Remake all the graphs using gradients of blue, red, purple, and yellow 
+
+```
+# Define a color map for the lines
+colors = ['blue', 'red', 'purple', 'yellow']
+
+# Redefine the plotting function with color gradients
+
+
+def plot_with_regression_and_colors(data, title, X_values, future_X_values, colors):
+    plt.figure(figsize=(14, 7))
+    max_y_value = 0
+    color_idx = 0
+    for technology in data.columns:
+        y_values = data[technology].values
+        current_max = max(y_values.max(), max_y_value)
+        if current_max > max_y_value:
+            max_y_value = current_max
+        if len(y_values[y_values > 0]) > 1:
+            model = LinearRegression()
+            model.fit(X_values, y_values)
+            future_y_values = model.predict(future_X_values)
+            color = colors[color_idx % len(colors)]  # Cycle through the given colors
+            plt.plot(X_values, y_values, marker='o', label=technology, color=color)
+            plt.plot(np.concatenate((X_values, future_X_values)).flatten(),
+                     np.concatenate((model.predict(X_values), future_y_values)).flatten(),
+                     linestyle='--', linewidth=2, color=color)
+            color_idx += 1
+        else:
+            color = colors[color_idx % len(colors)]
+            plt.scatter(X_values, y_values, label=technology, color=color)
+            color_idx += 1
+    plt.title(title)
+    plt.xlabel('Year')
+    plt.ylabel('Frequency')
+    plt.ylim(0, max_y_value + 5)
+    plt.legend(title='Technology Type', loc='upper left', bbox_to_anchor=(1, 1))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+```
+
+# Remake all the graphs with the new colors
+
+```
+plot_with_regression_and_colors(technology_type_over_time, 
+                                'Arabidopsis thaliana', 
+                                X, future_X, colors)
+
+plot_with_regression_and_colors(mouse_technology_type_over_time, 
+                                'Mus musculus', 
+                                X_mouse, future_X_mouse, colors)
+
+plot_with_regression_and_colors(human_technology_type_over_time, 
+                                'Homo sapiens', 
+                                X_human, future_X_human, colors)
+
+plot_with_regression_and_colors(technology_type_overall_time, 
+                                'All Organisms', 
+                                X_overall, future_X_overall, colors)
+```
+
+All graphs have been remade with the specified gradients of blue, red, purple, and yellow for the lines, offering a more colorful and distinctive visualization of the data. Each technology type is now represented by a different color in the sequence, which can help in differentiating them more clearly.​
+
+
+
+
+
+
+
+
+
+
+
+
